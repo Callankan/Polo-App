@@ -70,6 +70,7 @@ step() {
 
 adb shell settings put global hide_error_dialogs 1 >/dev/null 2>&1 || true
 adb shell pm clear "$PKG" >/dev/null 2>&1 || true
+adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
 adb shell am start -W -n "$PKG/.MainActivity"
 sleep 6
 alive "arranque"
