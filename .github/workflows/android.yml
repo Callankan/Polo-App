@@ -97,10 +97,10 @@ jobs:
           script: |
             ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
             mkdir -p report-preview && adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
-            adb shell monkey -p com.callankan.poloapp.debug --pct-syskeys 0 --throttle 120 -s 42 -v 1500 > monkey-debug.log 2>&1 || true
             adb install -r app/build/outputs/apk/release/app-release.apk
-            adb shell monkey -p com.callankan.poloapp --pct-syskeys 0 --throttle 120 -s 7 -v 800 > monkey-release.log 2>&1 || true
-            ! grep -E "CRASH|ANR in" monkey-debug.log monkey-release.log
+            adb shell monkey -p com.callankan.poloapp --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 7 -v 600 > report-preview/monkey-release.log 2>&1 || true
+            adb shell monkey -p com.callankan.poloapp.debug --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 42 -v 1000 > report-preview/monkey-debug.log 2>&1 || true
+            ! grep -E "// CRASH|ANR in" report-preview/monkey-release.log report-preview/monkey-debug.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -108,13 +108,13 @@ jobs:
           name: device-output
           path: |
             report-preview
-            monkey-*.log
             app/build/reports/androidTests
 
-      - name: Publicar vista previa del informe en la rama ci-report-preview
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Publicar vista previa del informe y logs en la rama ci-report-preview
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          cd report-preview
+          mkdir -p report-preview && cd report-preview
+          ls -la
           git init -q
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"

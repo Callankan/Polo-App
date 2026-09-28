@@ -79,7 +79,11 @@ class PdfPreview(file: File) {
     private val mutex = Mutex()
     val pageCount: Int get() = renderer.pageCount
 
-    suspend fun render(index: Int, width: Int): Bitmap = mutex.withLock {
+    private var closed = false
+
+    /** Devuelve null si el documento ya se cerró (p. ej. al regenerar el informe). */
+    suspend fun render(index: Int, width: Int): Bitmap? = mutex.withLock {
+        if (closed) return@withLock null
         withContext(Dispatchers.IO) {
             renderer.openPage(index).use { page ->
                 val height = (width * page.height.toFloat() / page.width).toInt()
@@ -91,7 +95,11 @@ class PdfPreview(file: File) {
         }
     }
 
-    fun close() {
+    /** Cierra esperando a que termine cualquier página que se esté renderizando. */
+    suspend fun close() = mutex.withLock { closeNow() }
+
+    fun closeNow() {
+        closed = true
         runCatching { renderer.close() }
         runCatching { descriptor.close() }
     }
@@ -124,9 +132,10 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { generator.generate(active.currentId(), options) }
                 .onSuccess { f ->
-                    preview?.close()
+                    val old = preview
                     file = f
                     preview = PdfPreview(f)
+                    old?.close()
                 }
                 .onFailure { error = it.message ?: "No se pudo generar el informe" }
             generating = false
@@ -134,7 +143,7 @@ class ReportViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        preview?.close()
+        preview?.closeNow()
     }
 }
 

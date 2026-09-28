@@ -194,8 +194,8 @@ fun WelcomeStep() {
                     drawRect(
                         Brush.radialGradient(
                             listOf(colors.heroGlow.copy(alpha = 0.5f), Color.Transparent),
-                            center = Offset(size.width / 2, size.height * 0.6f),
-                            radius = size.minDimension * 0.58f,
+                            center = Offset(size.width / 2, size.height * 0.52f),
+                            radius = size.minDimension * 0.48f,
                         ),
                     )
                 }
