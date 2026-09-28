@@ -91,15 +91,20 @@ jobs:
         with:
           api-level: 34
           arch: x86_64
-          target: google_apis
+          # Imagen AOSP sin servicios de Google: la app no los necesita y así el emulador
+          # no se satura con las tareas de primer arranque de Play Services.
+          target: default
           profile: pixel_6
+          cores: 3
+          ram-size: 3072M
           disable-animations: true
-          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none
           script: |
             mkdir -p report-preview
             nohup adb logcat -v time '*:W' > report-preview/logcat.txt 2>&1 &
             ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
             adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
+            ./gradlew --stop
             adb install -r app/build/outputs/apk/release/app-release.apk
             bash .github/scripts/release-smoke.sh report-preview
             ! (grep -A3 "FATAL EXCEPTION" report-preview/logcat.txt | grep "com.callankan")

@@ -9,7 +9,7 @@ mkdir -p "$OUT"
 shot() { adb exec-out screencap -p > "$OUT/release_$1.png" 2>/dev/null || true; }
 
 alive() {
-  if ! adb get-state >/dev/null 2>&1; then echo "Emulador desconectado tras: $1"; exit 2; fi
+  if [ "$(adb shell echo ok 2>/dev/null | tr -d '\r')" != ok ]; then echo "Emulador desconectado tras: $1 (no es un fallo de la app)"; exit 2; fi
   if ! adb shell pidof "$PKG" >/dev/null 2>&1; then echo "La app se ha cerrado tras: $1"; exit 1; fi
 }
 
