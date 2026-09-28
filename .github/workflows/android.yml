@@ -64,7 +64,7 @@ jobs:
             Las actualizaciones se instalan encima de la anterior sin perder datos.
 
   device:
-    name: Prueba en emulador (PDF + monkey)
+    name: Prueba en emulador (PDF + recorrido release)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -86,7 +86,7 @@ jobs:
       - name: Compilar APKs
         run: ./gradlew assembleDebug assembleDebugAndroidTest assembleRelease
 
-      - name: Test instrumentado y monkey test
+      - name: Tests en dispositivo y recorrido de la versión release
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -101,10 +101,8 @@ jobs:
             ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
             adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
             adb install -r app/build/outputs/apk/release/app-release.apk
-            adb shell monkey -p com.callankan.poloapp --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 7 -v 600 > report-preview/monkey-release.log 2>&1 || true
-            adb shell monkey -p com.callankan.poloapp.debug --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 42 -v 1000 > report-preview/monkey-debug.log 2>&1 || true
-            ! grep -E "// CRASH|ANR in|FATAL EXCEPTION" report-preview/monkey-release.log report-preview/monkey-debug.log report-preview/logcat.txt
-            grep -q "Monkey finished" report-preview/monkey-release.log || echo "::warning::El monkey test de release no llegó a terminar"
+            bash .github/scripts/release-smoke.sh report-preview
+            ! (grep -A3 "FATAL EXCEPTION" report-preview/logcat.txt | grep "com.callankan")
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -79,7 +79,7 @@ app/src/main/java/com/callankan/poloapp/
 ./gradlew recordRoborazziDebug   # regenera las capturas de docs/screenshots
 ```
 
-También se abre directamente con Android Studio. GitHub Actions compila, ejecuta los tests y publica el APK en *Releases* en cada push a `main`. Además, lo prueba en un emulador: genera un informe PDF real y hace un *monkey test*.
+También se abre directamente con Android Studio. GitHub Actions compila, ejecuta los tests y publica el APK en *Releases* en cada push a `main`. Además, lo prueba en un emulador Android: genera un informe PDF real, abre la app y recorre la versión de release guardando capturas (rama `ci-report-preview`).
 
 ## Notas
 
