@@ -94,13 +94,17 @@ jobs:
           target: google_apis
           profile: pixel_6
           disable-animations: true
+          emulator-options: -no-window -gpu guest -noaudio -no-boot-anim -no-snapshot -camera-back none
           script: |
+            mkdir -p report-preview
+            nohup adb logcat -v time '*:W' > report-preview/logcat.txt 2>&1 &
             ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
-            mkdir -p report-preview && adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
+            adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
             adb install -r app/build/outputs/apk/release/app-release.apk
             adb shell monkey -p com.callankan.poloapp --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 7 -v 600 > report-preview/monkey-release.log 2>&1 || true
             adb shell monkey -p com.callankan.poloapp.debug --pct-syskeys 0 --pct-appswitch 0 --throttle 150 -s 42 -v 1000 > report-preview/monkey-debug.log 2>&1 || true
-            ! grep -E "// CRASH|ANR in" report-preview/monkey-release.log report-preview/monkey-debug.log
+            ! grep -E "// CRASH|ANR in|FATAL EXCEPTION" report-preview/monkey-release.log report-preview/monkey-debug.log report-preview/logcat.txt
+            grep -q "Monkey finished" report-preview/monkey-release.log || echo "::warning::El monkey test de release no llegó a terminar"
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -24,7 +24,8 @@ class PdfStyle(val regular: Typeface, val bold: Typeface, val numbers: Typeface)
     val amber = Color.rgb(224, 138, 0)
     val red = Color.rgb(217, 45, 58)
 
-    fun text(size: Float, bold: Boolean = false, color: Int = ink, numbers: Boolean = false) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+    // Texto con avance fraccional: sin esto el PDF pierde espacios en los tamaños pequeños.
+    fun text(size: Float, bold: Boolean = false, color: Int = ink, numbers: Boolean = false) = TextPaint(Paint.ANTI_ALIAS_FLAG or Paint.SUBPIXEL_TEXT_FLAG or Paint.LINEAR_TEXT_FLAG).apply {
         typeface = if (numbers) this@PdfStyle.numbers else if (bold) this@PdfStyle.bold else regular
         textSize = size
         this.color = color
@@ -280,9 +281,13 @@ class PdfComposer(
         while (i < blocks.size) {
             val b = blocks[i]
             if (b.pageBreakBefore && current.isNotEmpty()) newPage()
+            // Mantiene juntos los bloques encadenados (título → cabecera de tabla → primera fila)
             var h = b.height(width)
-            // Mantener título + primer bloque juntos
-            if (b.keepWithNext && i + 1 < blocks.size) h += blocks[i + 1].height(width)
+            var j = i
+            while (blocks[j].keepWithNext && j + 1 < blocks.size) {
+                j++
+                h += blocks[j].height(width)
+            }
             if (y + h > contentBottom && current.isNotEmpty()) {
                 newPage()
                 b.repeatHeader?.let { header ->

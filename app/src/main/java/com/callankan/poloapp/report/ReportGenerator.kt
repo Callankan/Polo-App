@@ -93,8 +93,9 @@ class ReportGenerator @Inject constructor(
         val consistency = if (overview.odometer.anomalies.isEmpty()) "El kilometraje registrado es coherente: nunca disminuye entre lecturas."
         else "Atención: hay ${overview.odometer.anomalies.size} lectura(s) de kilometraje inferiores a otras anteriores."
         blocks += Paragraph(
-            "Este informe recoge ${records.size} intervenciones de mantenimiento y reparación ($workshopCount en taller), " +
-                "${itv.size} inspecciones ITV y ${events.size} lecturas del cuentakilómetros" +
+            "Este informe recoge ${plural(records.size, "intervención", "intervenciones")} de mantenimiento y reparación " +
+                "($workshopCount en taller), ${plural(itv.size, "inspección", "inspecciones")} ITV y " +
+                "${plural(events.size, "lectura", "lecturas")} del cuentakilómetros" +
                 (first?.let { " registradas desde ${Fmt.longDate(it)}" } ?: "") + ". $consistency",
             body,
         )
@@ -104,7 +105,7 @@ class ReportGenerator @Inject constructor(
                 "Kilometraje" to Fmt.km(overview.currentKm),
                 overview.odometer.kmPerYear?.let { "Media anual" to Fmt.km(it) },
                 "Intervenciones" to "${records.size}",
-                if (options.includeFuel) overview.fuel.averageLitersPer100?.let { "Consumo medio" to "${Fmt.twoDecimals(it)} l" } else null,
+                if (options.includeFuel) overview.fuel.averageLitersPer100?.let { "Consumo medio" to "${Fmt.twoDecimals(it)} l/100" } else null,
             ).take(4),
         )
         blocks += SpacerBlock(8f)
@@ -127,7 +128,7 @@ class ReportGenerator @Inject constructor(
         }
 
         // Mantenimiento
-        blocks += SectionTitle(style, "Mantenimiento y reparaciones", "$workshopCount en taller · ${records.size - workshopCount} realizadas por el propietario")
+        blocks += SectionTitle(style, "Mantenimiento y reparaciones", "$workshopCount en taller · ${records.size - workshopCount} por el propietario")
         if (records.isEmpty()) {
             blocks += Paragraph("No hay intervenciones registradas.", small)
         } else {
@@ -353,6 +354,8 @@ class ReportGenerator @Inject constructor(
         c.drawText("E", x + 5f, y + 22f, style.text(8f, bold = true, color = Color.WHITE))
         c.drawText(plate.uppercase(), x + 24f, y + 19f, text)
     }
+
+    private fun plural(n: Int, one: String, many: String) = "$n ${if (n == 1) one else many}"
 
     private fun loadScaled(file: File, maxSize: Int = 1000): Bitmap? = runCatching {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
