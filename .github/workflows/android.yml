@@ -1,0 +1,124 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Tests y APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Tests unitarios (lógica + recorrido completo de la app con Robolectric)
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Compilar APK de release
+        run: ./gradlew assembleRelease
+
+      - name: Preparar APK
+        run: |
+          VERSION=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          cp app/build/outputs/apk/release/app-release.apk "PoloApp-${VERSION}-build${{ github.run_number }}.apk"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PoloApp-apk
+          path: PoloApp-*.apk
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-reports
+          path: app/build/reports/tests
+
+      - name: Publicar versión descargable
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Polo App ${{ env.VERSION }} (build ${{ github.run_number }})
+          make_latest: true
+          files: PoloApp-*.apk
+          body: |
+            Descarga el archivo **.apk** desde el móvil e instálalo (permite "instalar apps de origen desconocido" si te lo pide).
+            Las actualizaciones se instalan encima de la anterior sin perder datos.
+
+  device:
+    name: Prueba en emulador (PDF + monkey)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Activar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Compilar APKs
+        run: ./gradlew assembleDebug assembleDebugAndroidTest assembleRelease
+
+      - name: Test instrumentado y monkey test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            ./gradlew connectedDebugAndroidTest -Pandroid.injected.androidTest.leaveApksInstalledAfterRun=true
+            mkdir -p report-preview && adb pull /sdcard/Android/data/com.callankan.poloapp.debug/files/report/. report-preview/
+            adb shell monkey -p com.callankan.poloapp.debug --pct-syskeys 0 --throttle 120 -s 42 -v 1500 > monkey-debug.log 2>&1 || true
+            adb install -r app/build/outputs/apk/release/app-release.apk
+            adb shell monkey -p com.callankan.poloapp --pct-syskeys 0 --throttle 120 -s 7 -v 800 > monkey-release.log 2>&1 || true
+            ! grep -E "CRASH|ANR in" monkey-debug.log monkey-release.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: device-output
+          path: |
+            report-preview
+            monkey-*.log
+            app/build/reports/androidTests
+
+      - name: Publicar vista previa del informe en la rama ci-report-preview
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cd report-preview
+          git init -q
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git checkout -q -b ci-report-preview
+          git add .
+          git commit -qm "Vista previa del informe PDF (build ${{ github.run_number }})"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-report-preview

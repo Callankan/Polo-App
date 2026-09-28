@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Polo App</string>
+    <string name="widget_name">Polo App · Resumen</string>
+    <string name="widget_description">Kilómetros, ITV y próximo mantenimiento de un vistazo</string>
+</resources>
