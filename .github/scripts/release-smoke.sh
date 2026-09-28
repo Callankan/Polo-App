@@ -6,7 +6,7 @@ OUT=${1:-report-preview}
 PKG=com.callankan.poloapp
 mkdir -p "$OUT"
 
-shot() { adb exec-out screencap -p > "$OUT/release_$1.png" 2>/dev/null || true; }
+shot() { adb shell screencap -p /sdcard/shot.png >/dev/null 2>&1 && adb pull /sdcard/shot.png "$OUT/release_$1.png" >/dev/null 2>&1 || true; }
 
 alive() {
   if [ "$(adb shell echo ok 2>/dev/null | tr -d '\r')" != ok ]; then echo "Emulador desconectado tras: $1 (no es un fallo de la app)"; exit 2; fi
